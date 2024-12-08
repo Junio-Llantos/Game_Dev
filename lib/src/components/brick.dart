@@ -6,10 +6,12 @@ import '../brick_breaker.dart';
 import '../config.dart';
 import 'ball.dart';
 import 'bat.dart';
+import 'power_up.dart';
 
 class Brick extends RectangleComponent
     with CollisionCallbacks, HasGameReference<BrickBreaker> {
-  Brick({required super.position, required Color color})
+  Brick(
+      {required super.position, required Color color, this.hasPowerUp = false})
       : super(
           size: Vector2(brickWidth, brickHeight),
           anchor: Anchor.center,
@@ -19,12 +21,18 @@ class Brick extends RectangleComponent
           children: [RectangleHitbox()],
         );
 
+  final bool hasPowerUp; // Add this
+
   @override
   void onCollisionStart(
       Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
     removeFromParent();
-    game.score.value++; // Add this line
+    game.score.value++;
+
+    if (hasPowerUp) {
+      game.world.add(PowerUp(position: position));
+    }
 
     if (game.world.children.query<Brick>().length == 1) {
       game.playState = PlayState.won;
