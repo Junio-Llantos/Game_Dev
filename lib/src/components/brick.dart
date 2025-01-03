@@ -4,40 +4,52 @@ import 'package:flutter/material.dart';
 
 import '../brick_breaker.dart';
 import '../config.dart';
-import 'ball.dart';
-import 'bat.dart';
 import 'power_up.dart';
 
 class Brick extends RectangleComponent
     with CollisionCallbacks, HasGameReference<BrickBreaker> {
-  Brick(
-      {required super.position, required Color color, this.hasPowerUp = false})
-      : super(
+  Brick({
+    required super.position,
+    required Color color,
+    this.hasPowerUp = false,
+    this.isIndestructible = false,
+    this.hitPoints = 1,
+  }) : super(
           size: Vector2(brickWidth, brickHeight),
           anchor: Anchor.center,
           paint: Paint()
-            ..color = color
+            ..color = isIndestructible ? Colors.black : color
             ..style = PaintingStyle.fill,
           children: [RectangleHitbox()],
         );
 
-  final bool hasPowerUp; // Add this
+  final bool hasPowerUp;
+  final bool isIndestructible;
+  int hitPoints;
 
   @override
   void onCollisionStart(
       Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
-    removeFromParent();
-    game.score.value++;
 
-    if (hasPowerUp) {
-      game.world.add(PowerUp(position: position));
-    }
+    // Debugging log to check what's colliding
+    print('Brick collided with: ${other.runtimeType}');
 
-    if (game.world.children.query<Brick>().length == 1) {
-      game.playState = PlayState.won;
-      game.world.removeAll(game.world.children.query<Ball>());
-      game.world.removeAll(game.world.children.query<Bat>());
+    if (!isIndestructible) {
+      hitPoints--;
+      if (hitPoints <= 0) {
+        removeFromParent();
+        game.score.value++;
+        if (hasPowerUp) {
+          game.world.add(PowerUp(
+            position: position,
+            type: PowerUpType.values[game.rand.nextInt(3)],
+          ));
+        }
+      }
+    } else {
+      // Indestructible brick handling: it shouldn't be destroyed
+      print('This brick is indestructible, not removed.');
     }
   }
 }

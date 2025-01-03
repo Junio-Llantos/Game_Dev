@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
@@ -41,46 +40,53 @@ class BrickBreaker extends FlameGame
     }
   }
 
+  late Timer _brickMovementTimer;
+
   @override
-  FutureOr<void> onLoad() async {
+  Future<void> onLoad() async {
     super.onLoad();
     camera.viewfinder.anchor = Anchor.topLeft;
     world.add(PlayArea());
     playState = PlayState.welcome;
+
+    // Comment out the brick movement timer to prevent random movement
+    // _brickMovementTimer = Timer(5, onTick: moveBricks, repeat: true);
   }
 
   void startGame() {
     if (playState == PlayState.playing) return;
 
-    // Reset game state
     world.removeAll(world.children.query<Ball>());
     world.removeAll(world.children.query<Bat>());
     world.removeAll(world.children.query<Brick>());
+    world.removeAll(world.children.query<PowerUp>());
 
     playState = PlayState.playing;
     score.value = 0;
 
-    // Add initial ball
     addNewBall(position: size / 2);
 
-    // Add bat
     world.add(Bat(
       size: Vector2(batWidth, batHeight),
       cornerRadius: const Radius.circular(ballRadius / 2),
-      position: Vector2(width / 2, height * 0.95),
+      position: Vector2(width / 2, height * 0.90),
     ));
 
-    // Add bricks with a chance of power-ups
     world.addAll([
       for (var i = 0; i < brickColors.length; i++)
-        for (var j = 1; j <= 5; j++)
+        for (var j = 1; j <= 7; j++)
           Brick(
             position: Vector2(
               (i + 0.5) * brickWidth + (i + 1) * brickGutter,
               (j + 2.0) * brickHeight + j * brickGutter,
             ),
-            color: brickColors[i],
-            hasPowerUp: rand.nextDouble() < 0.2,
+            color:
+                ((j == 2 || j == 6) && (i < 3 || i >= brickColors.length - 3))
+                    ? Colors.black
+                    : brickColors[i],
+            hasPowerUp: rand.nextDouble() < 0.1,
+            isIndestructible:
+                (j == 2 || j == 6) && (i < 3 || i >= brickColors.length - 3),
           ),
     ]);
   }
@@ -103,11 +109,26 @@ class BrickBreaker extends FlameGame
     checkGameOver();
   }
 
+  void handleBrickHit(Brick brick) {
+    if (!brick.isIndestructible) {
+      world.remove(brick); // Remove destructible bricks
+      score.value += 10; // Increment score
+      checkGameWon();
+    }
+  }
+
+  void checkGameWon() {
+    final remainingBricks =
+        world.children.query<Brick>().where((b) => !b.isIndestructible);
+    if (remainingBricks.isEmpty) {
+      playState = PlayState.won;
+    }
+  }
+
   void checkGameOver() {
     final activeBalls = world.children.query<Ball>();
     if (activeBalls.isEmpty) {
       playState = PlayState.gameOver;
-      //print('Game Over! No balls left.');
     }
   }
 
@@ -116,6 +137,7 @@ class BrickBreaker extends FlameGame
     super.update(dt);
     if (playState == PlayState.playing) {
       checkGameOver();
+      // No longer using the brick movement timer
     }
   }
 
@@ -148,4 +170,10 @@ class BrickBreaker extends FlameGame
 
   @override
   Color backgroundColor() => const Color(0xfff2e8cf);
+
+  @override
+  void onRemove() {
+    super.onRemove();
+    // Timer stop removed as brick movement is disabled
+  }
 }

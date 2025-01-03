@@ -9,10 +9,10 @@ import 'bat.dart';
 
 class PowerUp extends RectangleComponent
     with CollisionCallbacks, HasGameReference<BrickBreaker> {
-  PowerUp({required Vector2 position})
+  PowerUp({required Vector2 position, required this.type})
       : super(
           position: position,
-          size: Vector2(30, 30), // Slightly larger for better visibility
+          size: Vector2(30, 30),
           anchor: Anchor.center,
           paint: Paint()
             ..color = Colors.orange
@@ -23,7 +23,13 @@ class PowerUp extends RectangleComponent
         ) {
     add(
       TextComponent(
-        text: '+',
+        text: type == PowerUpType.fireball
+            ? '🔥'
+            : type == PowerUpType.enlarge
+                ? '🔼'
+                : type == PowerUpType.shrink
+                    ? '🔽'
+                    : '+',
         position: size / 2,
         anchor: Anchor.center,
         textRenderer: TextPaint(
@@ -38,6 +44,7 @@ class PowerUp extends RectangleComponent
   }
 
   final Vector2 velocity = Vector2(0, 100);
+  final PowerUpType type;
 
   @override
   void update(double dt) {
@@ -45,7 +52,7 @@ class PowerUp extends RectangleComponent
     position += velocity * dt;
 
     if (position.y > game.height) {
-      removeFromParent(); // Remove the power-up if it falls off the screen
+      removeFromParent();
     }
   }
 
@@ -55,22 +62,47 @@ class PowerUp extends RectangleComponent
     super.onCollisionStart(intersectionPoints, other);
 
     if (other is Bat) {
-      // Add three additional balls
-      for (var i = 0; i < 3; i++) {
-        final newBall = Ball(
-          difficultyModifier: difficultyModifier,
+      if (type == PowerUpType.fireball) {
+        // Spawn a fireball
+        final fireBall = Ball(
+          velocity: Vector2(0, -game.height / 2),
+          position: other.position.clone(),
           radius: ballRadius,
-          position: game.world.children.query<Ball>().first.position.clone(),
-          velocity: Vector2(
-            game.rand.nextDouble() * 2 - 1, // Random horizontal direction
-            -1,
-          ).normalized()
-            ..scale(game.height / 2),
+          difficultyModifier: difficultyModifier,
+          isFireball: true,
         );
-        game.world.add(newBall);
+        game.world.add(fireBall);
+      } else if (type == PowerUpType.enlarge) {
+        // Enlarge the bat
+        other.size = Vector2(other.size.x * 1.5, other.size.y);
+      } else if (type == PowerUpType.shrink) {
+        // Shrink the bat
+        other.size = Vector2(other.size.x * 0.5, other.size.y);
+      } else {
+        // Add 3 additional balls
+        for (int i = 0; i < 3; i++) {
+          final newBall = Ball(
+            velocity: Vector2(
+                  game.rand.nextDouble() * 2 - 1,
+                  -1,
+                ).normalized() *
+                game.height /
+                2,
+            position: game.world.children.query<Ball>().first.position.clone(),
+            radius: ballRadius,
+            difficultyModifier: difficultyModifier,
+          );
+          game.world.add(newBall);
+        }
       }
-
-      removeFromParent(); // Remove the power-up after collision
+      removeFromParent();
     }
   }
+}
+
+enum PowerUpType {
+  fireball,
+  enlarge,
+  shrink, // New shrink power-up type
+  defaultPowerUp,
 }
