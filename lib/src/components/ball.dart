@@ -1,6 +1,5 @@
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-//import 'package:flame/effects.dart';
 import 'package:flutter/material.dart';
 
 import '../brick_breaker.dart';
@@ -17,7 +16,7 @@ class Ball extends CircleComponent
     required this.difficultyModifier,
     this.isSticky = false,
     this.isBouncy = false,
-    this.isFireball = false, // Added isFireball
+    this.isFireball = false,
   }) : super(
           radius: radius,
           anchor: Anchor.center,
@@ -30,33 +29,30 @@ class Ball extends CircleComponent
   final double difficultyModifier;
   final bool isSticky;
   final bool isBouncy;
-  final bool isFireball; // Fireball property
+  final bool isFireball;
 
   @override
   void update(double dt) {
     super.update(dt);
     position += velocity * dt;
 
+    // Collision with screen boundaries
     if (position.x - radius <= 0 && velocity.x < 0) {
-      // Bounce off the left wall
       velocity.x = -velocity.x;
-      position.x = radius; // Correct the position to stay inside the screen
+      position.x = radius;
     } else if (position.x + radius >= game.width && velocity.x > 0) {
-      // Bounce off the right wall
       velocity.x = -velocity.x;
-      position.x =
-          game.width - radius; // Correct the position to stay inside the screen
+      position.x = game.width - radius;
     }
 
     if (position.y - radius <= 0 && velocity.y < 0) {
-      // Bounce off the top wall
       velocity.y = -velocity.y;
-      position.y = radius; // Correct the position to stay inside the screen
+      position.y = radius;
     } else if (position.y + radius >= game.height && velocity.y > 0) {
-      // Ball falls below the screen (handled as a missed ball)
       game.removeBall(this);
     }
 
+    // Modify velocity based on sticky or bouncy properties
     if (isSticky) {
       velocity.x *= 0.98;
       velocity.y *= 0.98;
@@ -86,7 +82,7 @@ class Ball extends CircleComponent
           (position.x - other.position.x) / other.size.x * game.width * 0.3;
     } else if (other is Brick) {
       if (isFireball) {
-        explodeBricks(other); // Explode multiple bricks
+        explodeBricks(other);
       } else {
         if (position.y < other.position.y - other.size.y / 2 ||
             position.y > other.position.y + other.size.y / 2) {
@@ -101,15 +97,12 @@ class Ball extends CircleComponent
   }
 
   void explodeBricks(Brick hitBrick) {
-    // Define explosion radius
     const double explosionRadius = 50.0;
 
-    // Get all bricks within the radius
     final bricksToDestroy = game.world.children.query<Brick>().where((brick) {
       return brick.position.distanceTo(position) <= explosionRadius;
     }).toList();
 
-    // Destroy up to 4 bricks
     for (var i = 0; i < bricksToDestroy.length && i < 4; i++) {
       game.world.remove(bricksToDestroy[i]);
     }

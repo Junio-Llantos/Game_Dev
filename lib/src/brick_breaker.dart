@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'dart:async' as dart;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'components/components.dart';
@@ -28,19 +29,11 @@ class BrickBreaker extends FlameGame
   PlayState get playState => _playState;
   set playState(PlayState playState) {
     _playState = playState;
-    switch (playState) {
-      case PlayState.welcome:
-      case PlayState.gameOver:
-      case PlayState.won:
-        overlays.add(playState.name);
-        break;
-      case PlayState.playing:
-        overlays.clear();
-        break;
+    overlays.clear();
+    if (playState != PlayState.playing) {
+      overlays.add(playState.name);
     }
   }
-
-  late Timer _brickMovementTimer;
 
   @override
   Future<void> onLoad() async {
@@ -48,47 +41,99 @@ class BrickBreaker extends FlameGame
     camera.viewfinder.anchor = Anchor.topLeft;
     world.add(PlayArea());
     playState = PlayState.welcome;
-
-    // Comment out the brick movement timer to prevent random movement
-    // _brickMovementTimer = Timer(5, onTick: moveBricks, repeat: true);
   }
 
   void startGame() {
     if (playState == PlayState.playing) return;
 
+    // Clear existing game objects
     world.removeAll(world.children.query<Ball>());
     world.removeAll(world.children.query<Bat>());
     world.removeAll(world.children.query<Brick>());
+    //world.removeAll(world.children.query<Obstacle>());
     world.removeAll(world.children.query<PowerUp>());
 
+    // Reset play state
     playState = PlayState.playing;
     score.value = 0;
 
+    // Add new ball
     addNewBall(position: size / 2);
 
+    // Add Bat
     world.add(Bat(
       size: Vector2(batWidth, batHeight),
       cornerRadius: const Radius.circular(ballRadius / 2),
       position: Vector2(width / 2, height * 0.90),
     ));
 
-    world.addAll([
-      for (var i = 0; i < brickColors.length; i++)
-        for (var j = 1; j <= 7; j++)
-          Brick(
-            position: Vector2(
-              (i + 0.5) * brickWidth + (i + 1) * brickGutter,
-              (j + 2.0) * brickHeight + j * brickGutter,
-            ),
-            color:
-                ((j == 2 || j == 6) && (i < 3 || i >= brickColors.length - 3))
-                    ? Colors.black
-                    : brickColors[i],
-            hasPowerUp: rand.nextDouble() < 0.1,
-            isIndestructible:
-                (j == 2 || j == 6) && (i < 3 || i >= brickColors.length - 3),
+    // Bricks setup
+    const int rows = 7;
+    final int columns = brickColors.length;
+
+    final bricksWithHitPoints = <Brick>[];
+
+    for (var i = 0; i < columns; i++) {
+      for (var j = 1; j <= rows; j++) {
+        final isIndestructible =
+            (j == 2 || j == 6) && (i < 3 || i >= brickColors.length - 3);
+
+        final hasHitPoints = !isIndestructible &&
+            bricksWithHitPoints.length < 6 &&
+            rand.nextBool();
+
+        final hitPoints = hasHitPoints ? rand.nextInt(4) + 2 : 1;
+
+        final brick = Brick(
+          position: Vector2(
+            (i + 0.5) * brickWidth + (i + 1) * brickGutter,
+            (j + 2.0) * brickHeight + j * brickGutter,
           ),
-    ]);
+          color: hasHitPoints ? Colors.red : brickColors[i],
+          hasPowerUp: rand.nextDouble() < 0.1,
+          isIndestructible: isIndestructible,
+          hitPoints: hasHitPoints ? hitPoints : 1,
+        );
+
+        world.add(brick);
+
+        if (hasHitPoints) {
+          bricksWithHitPoints.add(brick);
+        }
+      }
+    }
+
+    // Add obstacle at the center of the brick gri
+
+    // Reposition hit-point bricks periodically
+    dart.Timer.periodic(const Duration(seconds: 20), (timer) {
+      if (playState != PlayState.playing) {
+        timer.cancel();
+      } else {
+        repositionHitPointBricks();
+      }
+    });
+  }
+
+  void repositionHitPointBricks() {
+    final bricksWithHitPoints = world.children
+        .query<Brick>()
+        .where((brick) => brick.hitPoints > 1)
+        .toList();
+    final bricksWithoutHitPoints = world.children
+        .query<Brick>()
+        .where((brick) => brick.hitPoints == 1)
+        .toList();
+
+    if (bricksWithHitPoints.isEmpty || bricksWithoutHitPoints.isEmpty) return;
+
+    for (var brick in bricksWithHitPoints) {
+      final targetBrick =
+          bricksWithoutHitPoints[rand.nextInt(bricksWithoutHitPoints.length)];
+      final oldPosition = brick.position.clone();
+      brick.position = targetBrick.position;
+      targetBrick.position = oldPosition;
+    }
   }
 
   void addNewBall({required Vector2 position}) {
@@ -101,7 +146,6 @@ class BrickBreaker extends FlameGame
             ..scale(height / 2),
     );
     world.add(newBall);
-    print('Ball added. Active balls: ${world.children.query<Ball>().length}');
   }
 
   void removeBall(Ball ball) {
@@ -111,8 +155,8 @@ class BrickBreaker extends FlameGame
 
   void handleBrickHit(Brick brick) {
     if (!brick.isIndestructible) {
-      world.remove(brick); // Remove destructible bricks
-      score.value += 10; // Increment score
+      world.remove(brick);
+      score.value += 10;
       checkGameWon();
     }
   }
@@ -137,7 +181,6 @@ class BrickBreaker extends FlameGame
     super.update(dt);
     if (playState == PlayState.playing) {
       checkGameOver();
-      // No longer using the brick movement timer
     }
   }
 
@@ -170,10 +213,4 @@ class BrickBreaker extends FlameGame
 
   @override
   Color backgroundColor() => const Color(0xfff2e8cf);
-
-  @override
-  void onRemove() {
-    super.onRemove();
-    // Timer stop removed as brick movement is disabled
-  }
 }

@@ -63,7 +63,6 @@ class PowerUp extends RectangleComponent
 
     if (other is Bat) {
       if (type == PowerUpType.fireball) {
-        // Spawn a fireball
         final fireBall = Ball(
           velocity: Vector2(0, -game.height / 2),
           position: other.position.clone(),
@@ -73,13 +72,10 @@ class PowerUp extends RectangleComponent
         );
         game.world.add(fireBall);
       } else if (type == PowerUpType.enlarge) {
-        // Enlarge the bat
         other.size = Vector2(other.size.x * 1.5, other.size.y);
       } else if (type == PowerUpType.shrink) {
-        // Shrink the bat
         other.size = Vector2(other.size.x * 0.5, other.size.y);
       } else {
-        // Add 3 additional balls
         for (int i = 0; i < 3; i++) {
           final newBall = Ball(
             velocity: Vector2(
@@ -87,7 +83,8 @@ class PowerUp extends RectangleComponent
                   -1,
                 ).normalized() *
                 game.height /
-                2,
+                2 *
+                (1.0 + (i * 0.1)),
             position: game.world.children.query<Ball>().first.position.clone(),
             radius: ballRadius,
             difficultyModifier: difficultyModifier,
@@ -103,6 +100,6 @@ class PowerUp extends RectangleComponent
 enum PowerUpType {
   fireball,
   enlarge,
-  shrink, // New shrink power-up type
+  shrink,
   defaultPowerUp,
 }
